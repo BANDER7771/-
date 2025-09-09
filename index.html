@@ -711,31 +711,41 @@
         }
 
         // تحميل بيانات السيارات من Supabase
-        async function loadCarsData() {
-            try {
-                const { data, error } = await supabase
-                    .from('cars')
-                    .select('*')
-                    .order('created_at', { ascending: false });
+async function loadCarsData() {
+  try {
+    const pageSize = 1000;
+    let from = 0;
+    let all = [];
 
-                if (error) throw error;
+    while (true) {
+      const { data, error } = await supabase
+        .from('cars')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(from, from + pageSize - 1);
 
-                carsData = data.map(car => ({
-                    id: car.id,
-                    carName: car.car_name,
-                    notes: car.notes || '',
-                    shopName: car.shop_name,
-                    createdAt: car.created_at
-                }));
+      if (error) throw error;
 
-                smartSearch();
-                updateStats();
-                
-            } catch (error) {
-                console.error('خطأ في تحميل البيانات:', error);
-                alert('خطأ في تحميل البيانات: ' + error.message);
-            }
-        }
+      all = all.concat(data);
+      if (data.length < pageSize) break; // آخر دفعة
+      from += pageSize;
+    }
+
+    carsData = all.map(car => ({
+      id: car.id,
+      carName: car.car_name,
+      notes: car.notes || '',
+      shopName: car.shop_name,
+      createdAt: car.created_at
+    }));
+
+    smartSearch();
+    updateStats();
+  } catch (e) {
+    console.error('خطأ في تحميل البيانات:', e);
+    alert('خطأ في تحميل البيانات: ' + e.message);
+  }
+}
 
         // تحديث الإحصائيات
         function updateStats() {
