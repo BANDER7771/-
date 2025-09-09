@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة قاعدة بيانات السيارات - Supabase</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(-45deg, #000000, #1a1a1a, #2d2d2d, #1a1a1a);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+            color: white;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #ffffff, #cccccc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .connection-status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .connected {
+            background: linear-gradient(45deg, #28a745, #20c997);
+        }
+
+        .disconnected {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+        }
+
+        .setup-panel {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .control-group {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #333, #555);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            margin: 5px 0;
+        }
+
+        .btn:hover {
+            background: linear-gradient(45deg, #555, #777);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-add {
+            background: linear-gradient(45deg, #28a745, #20c997);
+        }
+
+        .btn-add:hover {
+            background: linear-gradient(45deg, #20c997, #28a745);
+        }
+
+        .btn-connect {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+        }
+
+        .search-box, .setup-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 16px;
+            backdrop-filter: blur(5px);
+            margin-bottom: 10px;
+        }
+
+        .search-box::placeholder, .setup-input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .file-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            backdrop-filter: blur(5px);
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            margin: 5px;
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .table-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            text-align: right;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            backdrop-filter: blur(10px);
+        }
+
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            transition: background-color 0.3s ease;
+        }
+
+        tr:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+            margin: 0 2px;
+            width: auto;
+        }
+
+        .btn-edit {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+        }
+
+        .btn-delete {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .close {
+            color: #aaa;
+            float: left;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .close:hover {
+            color: white;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 16px;
+            backdrop-filter: blur(5px);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .floating-particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .particle {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            animation: float 20s infinite linear;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(100vh) rotate(0deg);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100px) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        .alert {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border: 1px solid;
+        }
+
+        .alert-error {
+            background: rgba(220, 53, 69, 0.2);
+            border-color: #dc3545;
+            color: #ff6b7d;
+        }
+
+        .alert-success {
+            background: rgba(40, 167, 69, 0.2);
+            border-color: #28a745;
+            color: #51cf66;
+        }
+
+        .alert-info {
+            background: rgba(0, 123, 255, 0.2);
+            border-color: #007bff;
+            color: #74c0fc;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .controls {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats {
+                flex-direction: column;
+            }
+            
+            .table-container {
+                overflow-x: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="floating-particles" id="particles"></div>
+    
+    <div class="container">
+        <div class="header">
+            <h1>🚗 إدارة قاعدة بيانات السيارات</h1>
+            <p>نظام شامل مع قاعدة بيانات Supabase</p>
+            <div id="connectionStatus" class="connection-status disconnected">
+                غير متصل بقاعدة البيانات
+            </div>
+        </div>
+
+        <!-- لوحة إعداد Supabase -->
+        <div id="setupPanel" class="setup-panel">
+            <h3>🔧 إعداد اتصال Supabase</h3>
+            <div class="alert alert-info">
+                <strong>للبدء:</strong> أدخل بيانات مشروع Supabase الخاص بك أدناه.<br>
+                <strong>إذا لم يكن لديك حساب:</strong> 
+                <a href="https://supabase.com" target="_blank" style="color: #74c0fc;">انقر هنا لإنشاء حساب مجاني</a>
+            </div>
+            <input type="text" id="supabaseUrl" class="setup-input" placeholder="Project URL (مثال: https://xxxxx.supabase.co)">
+            <input type="text" id="supabaseKey" class="setup-input" placeholder="Anon Public Key">
+            <button class="btn btn-connect" onclick="connectSupabase()">
+                <span id="connectText">اتصال بقاعدة البيانات</span>
+                <div id="connectLoading" class="loading" style="display: none;"></div>
+            </button>
+            <div id="connectionMessage"></div>
+        </div>
+
+        <div id="mainApp" style="display: none;">
+            <div class="stats">
+                <div class="stat-item">
+                    <h3 id="totalCars">0</h3>
+                    <p>إجمالي السيارات</p>
+                </div>
+                <div class="stat-item">
+                    <h3 id="searchResults">0</h3>
+                    <p>نتائج البحث</p>
+                </div>
+                <div class="stat-item">
+                    <h3 id="uniqueShops">0</h3>
+                    <p>التشاليح المختلفة</p>
+                </div>
+            </div>
+
+            <div class="controls">
+                <div class="control-group">
+                    <h3>🔍 البحث الذكي</h3>
+                    <input type="text" id="searchInput" class="search-box" placeholder="ابحث في اسم السيارة، الملاحظات، أو التشليح...">
+                </div>
+                
+                <div class="control-group">
+                    <h3>📁 استيراد/تصدير</h3>
+                    <input type="file" id="fileInput" class="file-input" accept=".csv,.json">
+                    <button class="btn" onclick="exportData('csv')">تصدير CSV</button>
+                    <button class="btn" onclick="exportData('json')">تصدير JSON</button>
+                </div>
+                
+                <div class="control-group">
+                    <h3>➕ إضافة سيارة</h3>
+                    <button class="btn btn-add" onclick="openModal()">إضافة سيارة جديدة</button>
+                    <button class="btn" onclick="refreshData()">تحديث البيانات</button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table id="carsTable">
+                    <thead>
+                        <tr>
+                            <th>العمليات</th>
+                            <th>التاريخ</th>
+                            <th>اسم التشليح</th>
+                            <th>الملاحظات</th>
+                            <th>اسم السيارة والموديل</th>
+                            <th>#</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="carModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2 id="modalTitle">إضافة سيارة جديدة</h2>
+            
+            <form id="carForm">
+                <div class="form-group">
+                    <label for="carName">اسم السيارة والموديل:</label>
+                    <input type="text" id="carName" required placeholder="مثال: كامري من 2-15">
+                </div>
+                
+                <div class="form-group">
+                    <label for="notes">الملاحظات:</label>
+                    <textarea id="notes" placeholder="مثال: وجهية، خلفية، كاملة..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="shopName">اسم التشليح:</label>
+                    <input type="text" id="shopName" required placeholder="مثال: تشليح رقم 19">
+                </div>
+                
+                <button type="submit" class="btn btn-add">
+                    <span id="saveText">حفظ</span>
+                    <div id="saveLoading" class="loading" style="display: none;"></div>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let supabase = null;
+        let carsData = [];
+        let editingIndex = -1;
+        let filteredData = [];
+
+        // إنشاء الجسيمات المتحركة
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            
+            for (let i = 0; i < 20; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.width = (Math.random() * 10 + 5) + 'px';
+                particle.style.height = particle.style.width;
+                particle.style.animationDelay = Math.random() * 20 + 's';
+                particle.style.animationDuration = (Math.random() * 10 + 15) + 's';
+                particlesContainer.appendChild(particle);
+            }
+        }
+
+        // اتصال بـ Supabase
+        async function connectSupabase() {
+            const url = document.getElementById('supabaseUrl').value.trim();
+            const key = document.getElementById('supabaseKey').value.trim();
+            const messageDiv = document.getElementById('connectionMessage');
+            const connectBtn = document.querySelector('.btn-connect');
+            
+            if (!url || !key) {
+                showMessage(messageDiv, 'يرجى إدخال جميع البيانات المطلوبة', 'error');
+                return;
+            }
+
+            // إظهار loading
+            document.getElementById('connectText').style.display = 'none';
+            document.getElementById('connectLoading').style.display = 'inline-block';
+            connectBtn.disabled = true;
+
+            try {
+                // إنشاء اتصال Supabase
+                supabase = window.supabase.createClient(url, key);
+                
+                // اختبار الاتصال
+                const { data, error } = await supabase.from('cars').select('count').limit(1);
+                
+                if (error) {
+                    throw error;
+                }
+
+                // حفظ بيانات الاتصال
+                localStorage.setItem('supabaseUrl', url);
+                localStorage.setItem('supabaseKey', key);
+                
+                // تحديث حالة الاتصال
+                updateConnectionStatus(true);
+                showMessage(messageDiv, 'تم الاتصال بنجاح! 🎉', 'success');
+                
+                // إخفاء لوحة الإعداد وإظهار التطبيق
+                document.getElementById('setupPanel').style.display = 'none';
+                document.getElementById('mainApp').style.display = 'block';
+                
+                // تحميل البيانات
+                await loadCarsData();
+                
+            } catch (error) {
+                console.error('خطأ في الاتصال:', error);
+                let errorMessage = 'فشل في الاتصال: ';
+                
+                if (error.message.includes('Invalid API key')) {
+                    errorMessage += 'مفتاح API غير صحيح';
+                } else if (error.message.includes('relation "cars" does not exist')) {
+                    errorMessage += 'جدول "cars" غير موجود. يرجى إنشاؤه أولاً';
+                } else {
+                    errorMessage += error.message;
+                }
+                
+                showMessage(messageDiv, errorMessage, 'error');
+                updateConnectionStatus(false);
+            } finally {
+                document.getElementById('connectText').style.display = 'inline';
+                document.getElementById('connectLoading').style.display = 'none';
+                connectBtn.disabled = false;
+            }
+        }
+
+        // تحديث حالة الاتصال
+        function updateConnectionStatus(connected) {
+            const statusDiv = document.getElementById('connectionStatus');
+            if (connected) {
+                statusDiv.className = 'connection-status connected';
+                statusDiv.textContent = 'متصل بقاعدة البيانات ✅';
+            } else {
+                statusDiv.className = 'connection-status disconnected';
+                statusDiv.textContent = 'غير متصل بقاعدة البيانات ❌';
+            }
+        }
+
+        // عرض الرسائل
+        function showMessage(container, message, type) {
+            container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+
+        // تحميل بيانات السيارات من Supabase
+        async function loadCarsData() {
+            try {
+                const { data, error } = await supabase
+                    .from('cars')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                carsData = data.map(car => ({
+                    id: car.id,
+                    carName: car.car_name,
+                    notes: car.notes || '',
+                    shopName: car.shop_name,
+                    createdAt: car.created_at
+                }));
+
+                smartSearch();
+                updateStats();
+                
+            } catch (error) {
+                console.error('خطأ في تحميل البيانات:', error);
+                alert('خطأ في تحميل البيانات: ' + error.message);
+            }
+        }
+
+        // تحديث الإحصائيات
+        function updateStats() {
+            document.getElementById('totalCars').textContent = carsData.length;
+            document.getElementById('searchResults').textContent = filteredData.length;
+            
+            const uniqueShops = new Set(carsData.map(car => car.shopName)).size;
+            document.getElementById('uniqueShops').textContent = uniqueShops;
+        }
+
+        // عرض البيانات في الجدول
+        function renderTable(data = filteredData) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            data.forEach((car, index) => {
+                const row = document.createElement('tr');
+                const formattedDate = new Date(car.createdAt).toLocaleDateString('ar-SA');
+                
+                row.innerHTML = `
+                    <td>
+                        <button class="btn btn-small btn-edit" onclick="editCar(${car.id})">تعديل</button>
+                        <button class="btn btn-small btn-delete" onclick="deleteCar(${car.id})">حذف</button>
+                    </td>
+                    <td>${formattedDate}</td>
+                    <td>${car.shopName}</td>
+                    <td>${car.notes}</td>
+                    <td>${car.carName}</td>
+                    <td>${index + 1}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // البحث الذكي
+        function smartSearch() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+            
+            if (!searchTerm) {
+                filteredData = [...carsData];
+            } else {
+                filteredData = carsData.filter(car => {
+                    return car.carName.toLowerCase().includes(searchTerm) ||
+                           car.notes.toLowerCase().includes(searchTerm) ||
+                           car.shopName.toLowerCase().includes(searchTerm);
+                });
+            }
+            
+            renderTable();
+            updateStats();
+        }
+
+        // فتح النافذة المنبثقة
+        function openModal(carId = null) {
+            const modal = document.getElementById('carModal');
+            const title = document.getElementById('modalTitle');
+            
+            if (carId) {
+                editingIndex = carId;
+                title.textContent = 'تعديل السيارة';
+                const car = carsData.find(c => c.id === carId);
+                if (car) {
+                    document.getElementById('carName').value = car.carName;
+                    document.getElementById('notes').value = car.notes;
+                    document.getElementById('shopName').value = car.shopName;
+                }
+            } else {
+                editingIndex = null;
+                title.textContent = 'إضافة سيارة جديدة';
+                document.getElementById('carForm').reset();
+            }
+            
+            modal.style.display = 'block';
+        }
+
+        // إغلاق النافذة المنبثقة
+        function closeModal() {
+            document.getElementById('carModal').style.display = 'none';
+            editingIndex = null;
+        }
+
+        // إضافة/تعديل سيارة
+        async function saveCar(event) {
+            event.preventDefault();
+            
+            const carName = document.getElementById('carName').value.trim();
+            const notes = document.getElementById('notes').value.trim();
+            const shopName = document.getElementById('shopName').value.trim();
+            
+            if (!carName || !shopName) {
+                alert('يرجى ملء جميع الحقول المطلوبة');
+                return;
+            }
+
+            // إظهار loading
+            document.getElementById('saveText').style.display = 'none';
+            document.getElementById('saveLoading').style.display = 'inline-block';
+            
+            try {
+                if (editingIndex) {
+                    // تعديل
+                    const { error } = await supabase
+                        .from('cars')
+                        .update({
+                            car_name: carName,
+                            notes: notes,
+                            shop_name: shopName
+                        })
+                        .eq('id', editingIndex);
+
+                    if (error) throw error;
+                } else {
+                    // إضافة جديدة
+                    const { error } = await supabase
+                        .from('cars')
+                        .insert({
+                            car_name: carName,
+                            notes: notes,
+                            shop_name: shopName
+                        });
+
+                    if (error) throw error;
+                }
+
+                closeModal();
+                await loadCarsData(); // إعادة تحميل البيانات
+                
+            } catch (error) {
+                console.error('خطأ في الحفظ:', error);
+                alert('خطأ في حفظ البيانات: ' + error.message);
+            } finally {
+                document.getElementById('saveText').style.display = 'inline';
+                document.getElementById('saveLoading').style.display = 'none';
+            }
+        }
+
+        // تعديل سيارة
+        function editCar(carId) {
+            openModal(carId);
+        }
+
+        // حذف سيارة
+        async function deleteCar(carId) {
+            if (confirm('هل أنت متأكد من حذف هذه السيارة؟')) {
+                try {
+                    const { error } = await supabase
+                        .from('cars')
+                        .delete()
+                        .eq('id', carId);
+
+                    if (error) throw error;
+
+                    await loadCarsData(); // إعادة تحميل البيانات
+                    
+                } catch (error) {
+                    console.error('خطأ في الحذف:', error);
+                    alert('خطأ في حذف السيارة: ' + error.message);
+                }
+            }
+        }
+
+        // تحديث البيانات
+        async function refreshData() {
+            if (supabase) {
+                await loadCarsData();
+                alert('تم تحديث البيانات بنجاح!');
+            }
+        }
+
+        // استيراد ملف
+        function importFile(event) {
+            const file = event.target.files[0];
+            if (!file || !supabase) return;
+
+            const reader = new FileReader();
+            
+            reader.onload = async function(e) {
+                try {
+                    let importedData = [];
+                    const fileContent = e.target.result;
+                    
+                    if (file.name.toLowerCase().endsWith('.csv')) {
+                        const csv = Papa.parse(fileContent, {
+                            header: true,
+                            skipEmptyLines: true,
+                            dynamicTyping: false,
+                            delimitersToGuess: [',', '\t', ';', '|'],
+                            encoding: 'UTF-8'
+                        });
+                        
+                        importedData = csv.data.map(row => ({
+                            car_name: (row['اسم السيارة والموديل'] || row['carName'] || Object.values(row)[0] || '').toString().trim(),
+                            notes: (row['الملاحظات'] || row['notes'] || Object.values(row)[1] || '').toString().trim(),
+                            shop_name: (row['اسم التشليح'] || row['shopName'] || Object.values(row)[2] || '').toString().trim()
+                        }));
+                        
+                    } else if (file.name.toLowerCase().endsWith('.json')) {
+                        const jsonData = JSON.parse(fileContent);
+                        importedData = jsonData.map(car => ({
+                            car_name: car.carName || car.car_name,
+                            notes: car.notes || '',
+                            shop_name: car.shopName || car.shop_name
+                        }));
+                    }
+                    
+                    // فلترة البيانات الصالحة
+                    const validData = importedData.filter(car => 
+                        car.car_name && car.car_name.trim() && 
+                        car.shop_name && car.shop_name.trim()
+                    );
+                    
+                    if (validData.length > 0) {
+                        const confirmed = confirm(`تم العثور على ${validData.length} سجل صالح. هل تريد المتابعة؟`);
+                        
+                        if (confirmed) {
+                            // إدراج البيانات في قاعدة البيانات
+                            const { error } = await supabase
+                                .from('cars')
+                                .insert(validData);
+
+                            if (error) throw error;
+
+                            await loadCarsData();
+                            alert(`✅ تم استيراد ${validData.length} سجل بنجاح!`);
+                        }
+                    } else {
+                        alert('❌ لم يتم العثور على بيانات صالحة في الملف');
+                    }
+                    
+                } catch (error) {
+                    console.error('خطأ في الاستيراد:', error);
+                    alert('❌ خطأ في استيراد الملف: ' + error.message);
+                }
+                
+                event.target.value = '';
+            };
+            
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        // تصدير البيانات
+        function exportData(format) {
+            if (carsData.length === 0) {
+                alert('لا توجد بيانات للتصدير');
+                return;
+            }
+
+            let content, filename, mimeType;
+            const timestamp = new Date().toISOString().split('T')[0];
+            
+            try {
+                if (format === 'csv') {
+                    const headers = ['اسم السيارة والموديل', 'الملاحظات', 'اسم التشليح'];
+                    const csvData = [headers, ...carsData.map(car => [car.carName, car.notes, car.shopName])];
+                    content = Papa.unparse(csvData);
+                    filename = `قاعدة_بيانات_السيارات_${timestamp}.csv`;
+                    mimeType = 'text/csv;charset=utf-8;';
+                } else {
+                    content = JSON.stringify(carsData, null, 2);
+                    filename = `قاعدة_بيانات_السيارات_${timestamp}.json`;
+                    mimeType = 'application/json;charset=utf-8;';
+                }
+
+                const blob = new Blob(['\ufeff' + content], { type: mimeType });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = filename;
+                link.click();
+                
+                alert(`✅ تم تصدير ${carsData.length} سجل بنجاح!`);
+                
+            } catch (error) {
+                console.error('خطأ في التصدير:', error);
+                alert('❌ خطأ في تصدير البيانات: ' + error.message);
+            }
+        }
+
+        // تهيئة التطبيق
+        document.addEventListener('DOMContentLoaded', function() {
+            createParticles();
+            
+            // ربط الأحداث
+            document.getElementById('searchInput').addEventListener('input', smartSearch);
+            document.getElementById('fileInput').addEventListener('change', importFile);
+            document.getElementById('carForm').addEventListener('submit', saveCar);
+            
+            // إغلاق النافذة المنبثقة عند النقر خارجها
+            window.addEventListener('click', function(event) {
+                const modal = document.getElementById('carModal');
+                if (event.target === modal) {
+                    closeModal();
+                }
+            });
+
+            // محاولة اتصال تلقائي إذا كانت البيانات محفوظة
+            const savedUrl = localStorage.getItem('supabaseUrl');
+            const savedKey = localStorage.getItem('supabaseKey');
+            
+            if (savedUrl && savedKey) {
+                document.getElementById('supabaseUrl').value = savedUrl;
+                document.getElementById('supabaseKey').value = savedKey;
+                // connectSupabase(); // أو يمكنك تفعيل الاتصال التلقائي
+            }
+            
+            console.log('تم تهيئة التطبيق بنجاح');
+        });
+    </script>
+</body>
+</html>
