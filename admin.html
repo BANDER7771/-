@@ -138,6 +138,14 @@
             background: linear-gradient(45deg, #007bff, #0056b3);
         }
 
+        .btn-danger {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+        }
+
+        .btn-danger:hover {
+            background: linear-gradient(45deg, #c82333, #dc3545);
+        }
+
         .search-box, .setup-input {
             width: 100%;
             padding: 12px;
@@ -181,6 +189,45 @@
             margin: 5px;
             flex: 1;
             min-width: 150px;
+        }
+
+        /* Pagination Controls */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+        }
+
+        .pagination button {
+            padding: 8px 15px;
+            background: linear-gradient(45deg, #333, #555);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .pagination button:hover:not(:disabled) {
+            background: linear-gradient(45deg, #555, #777);
+            transform: translateY(-2px);
+        }
+
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .pagination-info {
+            color: #fff;
+            font-size: 14px;
+            margin: 0 15px;
         }
 
         .table-container {
@@ -371,6 +418,12 @@
             color: #74c0fc;
         }
 
+        .alert-warning {
+            background: rgba(255, 193, 7, 0.2);
+            border-color: #ffc107;
+            color: #ffc107;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 10px;
@@ -437,6 +490,10 @@
                     <h3 id="uniqueShops">0</h3>
                     <p>التشاليح المختلفة</p>
                 </div>
+                <div class="stat-item">
+                    <h3 id="currentPage">1</h3>
+                    <p>الصفحة الحالية</p>
+                </div>
             </div>
 
             <div class="controls">
@@ -453,10 +510,30 @@
                 </div>
                 
                 <div class="control-group">
-                    <h3>➕ إضافة سيارة</h3>
+                    <h3>➕ إدارة البيانات</h3>
                     <button class="btn btn-add" onclick="openModal()">إضافة سيارة جديدة</button>
                     <button class="btn" onclick="refreshData()">تحديث البيانات</button>
+                    <button class="btn btn-danger" onclick="deleteAllCars()">حذف جميع السيارات</button>
                 </div>
+            </div>
+
+            <!-- Pagination Controls -->
+            <div class="pagination" id="paginationTop">
+                <button onclick="changePage('first')">الأولى</button>
+                <button onclick="changePage('prev')">السابق</button>
+                <span class="pagination-info">
+                    صفحة <span id="currentPageNum">1</span> من <span id="totalPages">1</span>
+                    | عرض <span id="showingFrom">0</span>-<span id="showingTo">0</span> من <span id="totalRecords">0</span>
+                </span>
+                <button onclick="changePage('next')">التالي</button>
+                <button onclick="changePage('last')">الأخيرة</button>
+                <select id="rowsPerPage" onchange="changeRowsPerPage()" style="margin-right: 10px; padding: 5px; background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 5px;">
+                    <option value="50">50 صف</option>
+                    <option value="100">100 صف</option>
+                    <option value="200">200 صف</option>
+                    <option value="500">500 صف</option>
+                    <option value="all">عرض الكل</option>
+                </select>
             </div>
 
             <div class="table-container">
@@ -474,6 +551,17 @@
                     <tbody id="tableBody">
                     </tbody>
                 </table>
+            </div>
+
+            <!-- Bottom Pagination -->
+            <div class="pagination" id="paginationBottom">
+                <button onclick="changePage('first')">الأولى</button>
+                <button onclick="changePage('prev')">السابق</button>
+                <span class="pagination-info">
+                    صفحة <span id="currentPageNum2">1</span> من <span id="totalPages2">1</span>
+                </span>
+                <button onclick="changePage('next')">التالي</button>
+                <button onclick="changePage('last')">الأخيرة</button>
             </div>
         </div>
     </div>
@@ -513,6 +601,8 @@
         let carsData = [];
         let editingIndex = -1;
         let filteredData = [];
+        let currentPage = 1;
+        let rowsPerPage = 50;
 
         // إنشاء الجسيمات المتحركة
         function createParticles() {
@@ -531,14 +621,16 @@
         }
 
         // اتصال بـ Supabase
-        async function connectSupabase() {
+        async function connectSupabase(isAutoConnect = false) {
             const url = document.getElementById('supabaseUrl').value.trim();
             const key = document.getElementById('supabaseKey').value.trim();
             const messageDiv = document.getElementById('connectionMessage');
             const connectBtn = document.querySelector('.btn-connect');
             
             if (!url || !key) {
-                showMessage(messageDiv, 'يرجى إدخال جميع البيانات المطلوبة', 'error');
+                if (!isAutoConnect) {
+                    showMessage(messageDiv, 'يرجى إدخال جميع البيانات المطلوبة', 'error');
+                }
                 return;
             }
 
@@ -564,7 +656,9 @@
                 
                 // تحديث حالة الاتصال
                 updateConnectionStatus(true);
-                showMessage(messageDiv, 'تم الاتصال بنجاح! 🎉', 'success');
+                if (!isAutoConnect) {
+                    showMessage(messageDiv, 'تم الاتصال بنجاح! 🎉', 'success');
+                }
                 
                 // إخفاء لوحة الإعداد وإظهار التطبيق
                 document.getElementById('setupPanel').style.display = 'none';
@@ -575,17 +669,19 @@
                 
             } catch (error) {
                 console.error('خطأ في الاتصال:', error);
-                let errorMessage = 'فشل في الاتصال: ';
-                
-                if (error.message.includes('Invalid API key')) {
-                    errorMessage += 'مفتاح API غير صحيح';
-                } else if (error.message.includes('relation "cars" does not exist')) {
-                    errorMessage += 'جدول "cars" غير موجود. يرجى إنشاؤه أولاً';
-                } else {
-                    errorMessage += error.message;
+                if (!isAutoConnect) {
+                    let errorMessage = 'فشل في الاتصال: ';
+                    
+                    if (error.message.includes('Invalid API key')) {
+                        errorMessage += 'مفتاح API غير صحيح';
+                    } else if (error.message.includes('relation "cars" does not exist')) {
+                        errorMessage += 'جدول "cars" غير موجود. يرجى إنشاؤه أولاً';
+                    } else {
+                        errorMessage += error.message;
+                    }
+                    
+                    showMessage(messageDiv, errorMessage, 'error');
                 }
-                
-                showMessage(messageDiv, errorMessage, 'error');
                 updateConnectionStatus(false);
             } finally {
                 document.getElementById('connectText').style.display = 'inline';
@@ -648,16 +744,86 @@
             
             const uniqueShops = new Set(carsData.map(car => car.shopName)).size;
             document.getElementById('uniqueShops').textContent = uniqueShops;
+            
+            document.getElementById('currentPage').textContent = currentPage;
+        }
+
+        // Pagination functions
+        function getPaginatedData() {
+            if (rowsPerPage === 'all') {
+                return filteredData;
+            }
+            
+            const startIndex = (currentPage - 1) * rowsPerPage;
+            const endIndex = startIndex + rowsPerPage;
+            return filteredData.slice(startIndex, endIndex);
+        }
+
+        function updatePaginationInfo() {
+            const totalPages = rowsPerPage === 'all' ? 1 : Math.ceil(filteredData.length / rowsPerPage);
+            const startIndex = rowsPerPage === 'all' ? 1 : (currentPage - 1) * rowsPerPage + 1;
+            const endIndex = rowsPerPage === 'all' ? filteredData.length : Math.min(currentPage * rowsPerPage, filteredData.length);
+
+            // Update both pagination controls
+            document.getElementById('currentPageNum').textContent = currentPage;
+            document.getElementById('totalPages').textContent = totalPages;
+            document.getElementById('showingFrom').textContent = filteredData.length > 0 ? startIndex : 0;
+            document.getElementById('showingTo').textContent = endIndex;
+            document.getElementById('totalRecords').textContent = filteredData.length;
+            
+            document.getElementById('currentPageNum2').textContent = currentPage;
+            document.getElementById('totalPages2').textContent = totalPages;
+
+            // Enable/disable pagination buttons
+            const prevButtons = document.querySelectorAll('.pagination button:nth-child(1), .pagination button:nth-child(2)');
+            const nextButtons = document.querySelectorAll('.pagination button:nth-child(4), .pagination button:nth-child(5)');
+            
+            prevButtons.forEach(btn => btn.disabled = currentPage === 1);
+            nextButtons.forEach(btn => btn.disabled = currentPage >= totalPages);
+        }
+
+        function changePage(action) {
+            const totalPages = rowsPerPage === 'all' ? 1 : Math.ceil(filteredData.length / rowsPerPage);
+            
+            switch(action) {
+                case 'first':
+                    currentPage = 1;
+                    break;
+                case 'prev':
+                    if (currentPage > 1) currentPage--;
+                    break;
+                case 'next':
+                    if (currentPage < totalPages) currentPage++;
+                    break;
+                case 'last':
+                    currentPage = totalPages;
+                    break;
+            }
+            
+            renderTable();
+            updatePaginationInfo();
+            updateStats();
+        }
+
+        function changeRowsPerPage() {
+            const select = document.getElementById('rowsPerPage');
+            rowsPerPage = select.value === 'all' ? 'all' : parseInt(select.value);
+            currentPage = 1;
+            renderTable();
+            updatePaginationInfo();
         }
 
         // عرض البيانات في الجدول
-        function renderTable(data = filteredData) {
+        function renderTable() {
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
 
-            data.forEach((car, index) => {
+            const dataToDisplay = getPaginatedData();
+
+            dataToDisplay.forEach((car, index) => {
                 const row = document.createElement('tr');
                 const formattedDate = new Date(car.createdAt).toLocaleDateString('ar-SA');
+                const globalIndex = filteredData.indexOf(car) + 1;
                 
                 row.innerHTML = `
                     <td>
@@ -668,10 +834,12 @@
                     <td>${car.shopName}</td>
                     <td>${car.notes}</td>
                     <td>${car.carName}</td>
-                    <td>${index + 1}</td>
+                    <td>${globalIndex}</td>
                 `;
                 tbody.appendChild(row);
             });
+
+            updatePaginationInfo();
         }
 
         // البحث الذكي
@@ -688,6 +856,7 @@
                 });
             }
             
+            currentPage = 1; // Reset to first page when searching
             renderTable();
             updateStats();
         }
@@ -797,6 +966,38 @@
                 } catch (error) {
                     console.error('خطأ في الحذف:', error);
                     alert('خطأ في حذف السيارة: ' + error.message);
+                }
+            }
+        }
+
+        // حذف جميع السيارات
+        async function deleteAllCars() {
+            const confirmMsg = `⚠️ تحذير خطير! ⚠️\n\nأنت على وشك حذف جميع السيارات (${carsData.length} سيارة)\n\nهذا الإجراء لا يمكن التراجع عنه!\n\nهل أنت متأكد تماماً؟`;
+            
+            if (confirm(confirmMsg)) {
+                if (confirm('تأكيد نهائي: سيتم حذف جميع البيانات نهائياً. هل تريد المتابعة؟')) {
+                    try {
+                        // Show loading message
+                        const tbody = document.getElementById('tableBody');
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">جاري حذف جميع البيانات...</td></tr>';
+                        
+                        // Delete all records from Supabase
+                        const { error } = await supabase
+                            .from('cars')
+                            .delete()
+                            .neq('id', 0); // This will delete all records (neq = not equal)
+
+                        if (error) throw error;
+
+                        // Reload data
+                        await loadCarsData();
+                        
+                        alert('✅ تم حذف جميع السيارات بنجاح!');
+                        
+                    } catch (error) {
+                        console.error('خطأ في حذف جميع البيانات:', error);
+                        alert('❌ خطأ في حذف البيانات: ' + error.message);
+                    }
                 }
             }
         }
@@ -941,7 +1142,8 @@
             if (savedUrl && savedKey) {
                 document.getElementById('supabaseUrl').value = savedUrl;
                 document.getElementById('supabaseKey').value = savedKey;
-                // connectSupabase(); // أو يمكنك تفعيل الاتصال التلقائي
+                // اتصال تلقائي عند تحميل الصفحة
+                connectSupabase(true);
             }
             
             console.log('تم تهيئة التطبيق بنجاح');
