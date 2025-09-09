@@ -1157,7 +1157,10 @@ document.addEventListener('DOMContentLoaded', function() {
   } else {
     // أول مرة فقط تُظهر لوحة الإعداد
     document.getElementById('setupPanel').style.display = 'block';
+      // اتصال تلقائي عند تحميل الصفحة
+    connectSupabase(true);
   }
+
 });
             
             console.log('تم تهيئة التطبيق بنجاح');
