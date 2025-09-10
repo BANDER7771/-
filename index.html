@@ -1129,39 +1129,32 @@ async function loadCarsData() {
         }
 
         // تهيئة التطبيق
-document.addEventListener('DOMContentLoaded', function() {
-  createParticles();
+        document.addEventListener('DOMContentLoaded', function() {
+            createParticles();
+            
+            // ربط الأحداث
+            document.getElementById('searchInput').addEventListener('input', smartSearch);
+            document.getElementById('fileInput').addEventListener('change', importFile);
+            document.getElementById('carForm').addEventListener('submit', saveCar);
+            
+            // إغلاق النافذة المنبثقة عند النقر خارجها
+            window.addEventListener('click', function(event) {
+                const modal = document.getElementById('carModal');
+                if (event.target === modal) {
+                    closeModal();
+                }
+            });
 
-  // events bindings ...
-  document.getElementById('searchInput').addEventListener('input', smartSearch);
-  document.getElementById('fileInput').addEventListener('change', importFile);
-  document.getElementById('carForm').addEventListener('submit', saveCar);
-
-  window.addEventListener('click', function(event) {
-    const modal = document.getElementById('carModal');
-    if (event.target === modal) closeModal();
-  });
-
-  const savedUrl = localStorage.getItem('supabaseUrl');
-  const savedKey = localStorage.getItem('supabaseKey');
-
-  if (savedUrl && savedKey) {
-    // اخفِ لوحة الإعداد فورًا لتجنب الوميض
-    document.getElementById('setupPanel').style.display = 'none';
-    document.getElementById('mainApp').style.display = 'block';
-    // عبِّئ الحقول (لأي تعديل لاحق)
-    document.getElementById('supabaseUrl').value = savedUrl;
-    document.getElementById('supabaseKey').value = savedKey;
-    // اتّصال تلقائي
-    connectSupabase(true);
-  } else {
-    // أول مرة فقط تُظهر لوحة الإعداد
-    document.getElementById('setupPanel').style.display = 'block';
-      // اتصال تلقائي عند تحميل الصفحة
-    connectSupabase(true);
-  }
-
-});
+            // محاولة اتصال تلقائي إذا كانت البيانات محفوظة
+            const savedUrl = localStorage.getItem('supabaseUrl');
+            const savedKey = localStorage.getItem('supabaseKey');
+            
+            if (savedUrl && savedKey) {
+                document.getElementById('supabaseUrl').value = savedUrl;
+                document.getElementById('supabaseKey').value = savedKey;
+                // اتصال تلقائي عند تحميل الصفحة
+                connectSupabase(true);
+            }
             
             console.log('تم تهيئة التطبيق بنجاح');
         });
